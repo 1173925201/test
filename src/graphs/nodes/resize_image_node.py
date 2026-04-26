@@ -64,9 +64,9 @@ def resize_image_node(state: ResizeImageInput, config: RunnableConfig, runtime: 
         
         print(f"图片压缩: {original_size} -> ({target_width}, {target_height})")
         
-        # 返回压缩后的图片和logo
+        # 覆盖daka_image，确保下游抠图使用压缩后的图片
         return ResizeImageOutput(
-            resized_image=resized_image,
+            daka_image=resized_image,
             logo_image=state.logo_image
         )
 

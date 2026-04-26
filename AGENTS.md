@@ -10,7 +10,7 @@
 | generate_daka | `nodes/generate_daka_node.py` | task | 生成打卡IP换装图，后续需处理 | 并行分支2 | - |
 | resize_image | `nodes/resize_image_node.py` | task | 压缩打卡图片到512px高度 | - | - |
 | remove_background | `nodes/remove_background_node.py` | task | 智能抠图，去除打卡图片背景 | - | - |
-| composite_image | `nodes/composite_image_node.py` | task | 合成打卡图片到背景图 | - | - |
+| composite_image | `nodes/composite_image_node.py` | task | 将抠图主体合成到随机背景，并添加Logo徽章 | - | - |
 
 **类型说明**: task(task节点) / agent(大模型) / condition(条件分支) / looparray(列表循环) / loopcond(条件循环)
 
@@ -63,8 +63,14 @@
 - 打卡姿势: `assets/ip图片_打卡.jpg`
 - 站着姿势: `assets/ip图片_站着的.png`
 
-## 背景图合成说明
-`composite_image`节点将打卡IP换装图和Logo合成到`assets/没有logo和人物的网页截图.png`背景图上：
+## 随机背景合成说明
+`composite_image`节点会在抠图完成后，程序化生成一张随机展示背景，再将打卡IP换装主体和Logo合成上去。输出画布尺寸沿用`assets/没有logo和人物的网页截图.png`，确保现有版式位置不变。
+
+### 背景处理
+1. **随机配色**：从多组清爽展示风格中随机选择配色
+2. **空间层次**：生成墙面、地面、透视线和柔光效果
+3. **装饰元素**：随机添加无文字海报色块和柔和光斑
+4. **质感优化**：添加轻微噪声，避免背景过于平面
 
 ### 人物处理
 1. **缩放**：按高度缩放到700像素
@@ -78,7 +84,7 @@
 3. **位置**：X=320, Y=1150
 
 ### 合成顺序
-1. 背景图
+1. 随机背景图
 2. 人物阴影
 3. 人物（带渐变）
 4. Logo徽章
@@ -115,4 +121,4 @@
 - `assets/ip图片_站着的.png` - 站着姿势的IP基础形象
 - `assets/logo.png` - Logo图
 - `assets/人物.png` - 示例人物图
-- `assets/没有logo和人物的网页截图.png` - 合成背景图
+- `assets/没有logo和人物的网页截图.png` - 输出画布尺寸参考图

@@ -68,7 +68,7 @@ class ResizeImageInput(BaseModel):
 
 class ResizeImageOutput(BaseModel):
     """压缩图片节点的输出"""
-    resized_image: File = Field(..., description="压缩后的打卡图片（高度512px）")
+    daka_image: File = Field(..., description="压缩后的打卡图片（高度512px）")
     logo_image: File = Field(..., description="Logo图片")
 
 
