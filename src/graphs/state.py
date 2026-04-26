@@ -18,6 +18,7 @@ class GlobalState(BaseModel):
     # 打卡姿势相关
     daka_image: Optional[File] = Field(default=None, description="生成的打卡IP换装图（白色背景）")
     cutout_image: Optional[File] = Field(default=None, description="抠图后的打卡图片主体")
+    background_image: Optional[File] = Field(default=None, description="随机生成的背景图")
     final_image: Optional[File] = Field(default=None, description="最终合成的打卡图片")
 
 
@@ -85,11 +86,26 @@ class RemoveBackgroundOutput(BaseModel):
     logo_image: File = Field(..., description="Logo图片")
 
 
-# ==================== 节点5: 合成最终图片 ====================
+# ==================== 节点5: 生成随机背景 ====================
+class GenerateRandomBackgroundInput(BaseModel):
+    """随机背景节点的输入"""
+    cutout_image: File = Field(..., description="抠图后的打卡主体图片")
+    logo_image: File = Field(..., description="Logo图片")
+
+
+class GenerateRandomBackgroundOutput(BaseModel):
+    """随机背景节点的输出"""
+    cutout_image: File = Field(..., description="抠图后的打卡主体图片")
+    logo_image: File = Field(..., description="Logo图片")
+    background_image: File = Field(..., description="随机生成的背景图")
+
+
+# ==================== 节点6: 合成最终图片 ====================
 class CompositeImageInput(BaseModel):
     """合成图片节点的输入"""
     cutout_image: File = Field(..., description="抠图后的打卡主体图片")
     logo_image: File = Field(..., description="Logo图片")
+    background_image: File = Field(..., description="随机生成的背景图")
 
 
 class CompositeImageOutput(BaseModel):

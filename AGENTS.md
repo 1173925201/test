@@ -10,6 +10,7 @@
 | generate_daka | `nodes/generate_daka_node.py` | task | 生成打卡IP换装图，后续需处理 | 并行分支2 | - |
 | resize_image | `nodes/resize_image_node.py` | task | 压缩打卡图片到512px高度 | - | - |
 | remove_background | `nodes/remove_background_node.py` | task | 智能抠图，去除打卡图片背景 | - | - |
+| generate_random_background | `nodes/generate_random_background_node.py` | task | 抠图后生成随机展示背景 | - | - |
 | composite_image | `nodes/composite_image_node.py` | task | 将抠图主体合成到随机背景，并添加Logo徽章 | - | - |
 
 **类型说明**: task(task节点) / agent(大模型) / condition(条件分支) / looparray(列表循环) / loopcond(条件循环)
@@ -36,6 +37,11 @@
          │              └────────┬────────┘
          │                       ↓
          │              ┌─────────────────┐
+         │              │generate_random_ │
+         │              │   background    │
+         │              └────────┬────────┘
+         │                       ↓
+         │              ┌─────────────────┐
          │              │ composite_image │
          │              └────────┬────────┘
          ↓                       ↓
@@ -48,7 +54,7 @@
 **并行执行说明**：
 - `start` 节点同时触发 `generate_standing` 和 `generate_daka`，**真正实现并行执行**
 - **分支1**（站着）：生成后直接输出到 `standing_image`，然后结束
-- **分支2**（打卡）：生成后继续经过压缩、抠图、合成链路，输出到 `final_image`
+- **分支2**（打卡）：生成后继续经过压缩、抠图、随机背景、合成链路，输出到 `final_image`
 - **速度优势**：两个生图任务同时运行，总耗时 ≈ max(生图时间, 打卡链路时间) 而非两者之和
 
 **输入说明**：
@@ -64,7 +70,7 @@
 - 站着姿势: `assets/ip图片_站着的.png`
 
 ## 随机背景合成说明
-`composite_image`节点会在抠图完成后，程序化生成一张随机展示背景，再将打卡IP换装主体和Logo合成上去。输出画布尺寸沿用`assets/没有logo和人物的网页截图.png`，确保现有版式位置不变。
+`generate_random_background`节点会在抠图完成后，程序化生成一张随机展示背景；`composite_image`节点负责把打卡IP换装主体和Logo合成到该背景上。输出画布尺寸沿用`assets/没有logo和人物的网页截图.png`，确保现有版式位置不变。
 
 ### 背景处理
 1. **随机配色**：从多组清爽展示风格中随机选择配色
@@ -113,7 +119,7 @@
 - 节点`generate_standing`和`generate_daka`使用图片生成技能 (doubao-seedream-5-0-260128模型)
   - **多图参考**：同时上传IP形象、人物衣服样式、Logo
   - 两个节点**并行执行**，提升速度
-- 节点`remove_background`和`composite_image`使用PIL/OpenCV进行图像处理
+- 节点`remove_background`、`generate_random_background`和`composite_image`使用PIL/OpenCV进行图像处理
 - 文件存储使用S3SyncStorage
 
 ## 资源文件

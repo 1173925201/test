@@ -13,6 +13,7 @@ from graphs.nodes.generate_standing_node import generate_standing_node
 from graphs.nodes.generate_daka_node import generate_daka_node
 from graphs.nodes.resize_image_node import resize_image_node
 from graphs.nodes.remove_background_node import remove_background_node
+from graphs.nodes.generate_random_background_node import generate_random_background_node
 from graphs.nodes.composite_image_node import composite_image_node
 
 
@@ -37,6 +38,7 @@ builder.add_node("generate_standing", generate_standing_node)
 builder.add_node("generate_daka", generate_daka_node)
 builder.add_node("resize_image", resize_image_node)
 builder.add_node("remove_background", remove_background_node)
+builder.add_node("generate_random_background", generate_random_background_node)
 builder.add_node("composite_image", composite_image_node)
 
 # 设置入口点
@@ -55,7 +57,8 @@ builder.add_edge("generate_standing", END)
 # ===== 分支2: 打卡的图 -> 继续处理链路 =====
 builder.add_edge("generate_daka", "resize_image")
 builder.add_edge("resize_image", "remove_background")
-builder.add_edge("remove_background", "composite_image")
+builder.add_edge("remove_background", "generate_random_background")
+builder.add_edge("generate_random_background", "composite_image")
 builder.add_edge("composite_image", END)
 
 # 编译图
