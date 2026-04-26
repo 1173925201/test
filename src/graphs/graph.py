@@ -7,7 +7,8 @@ from graphs.state import (
     GraphInput,
     GraphOutput,
     StartNodeInput,
-    StartNodeOutput
+    StartNodeOutput,
+    default_popup_background_file
 )
 from graphs.nodes.generate_standing_node import generate_standing_node
 from graphs.nodes.generate_daka_node import generate_daka_node
@@ -26,7 +27,7 @@ def start_node(state: StartNodeInput, config: RunnableConfig, runtime: Runtime[C
     return StartNodeOutput(
         person_image=state.person_image,
         logo_image=state.logo_image,
-        background_image=state.background_image
+        background_image=state.background_image or default_popup_background_file()
     )
 
 

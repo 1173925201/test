@@ -60,7 +60,7 @@
 **输入说明**：
 - `person_image` (必填): 人物形象照，提供衣服样式
 - `logo_image` (必填): Logo图片，会出现在衣服上
-- `background_image` (必填): 弹窗截图背景，用于替换顶部IP形象
+- `background_image` (选填): 弹窗截图背景，用于替换顶部IP形象；不传时使用内置默认背景
 
 **输出说明**：
 - `standing_image`: 站着的IP换装图片（直接输出，白色背景）
@@ -74,7 +74,7 @@
 `prepare_popup_background`节点会在抠图完成后，标准化调用方传入的弹窗截图背景；`composite_image`节点负责把打卡IP换装主体和Logo合成到该背景上。输出画布保持原弹窗背景尺寸。
 
 ### 背景处理
-1. **来源**：使用工作流入参`background_image`
+1. **来源**：优先使用工作流入参`background_image`，缺省时使用`assets/下班打卡弹窗背景.png`
 2. **标准化**：统一转为RGBA PNG并上传存储
 3. **尺寸**：保持输入背景原始尺寸
 
@@ -125,3 +125,4 @@
 - `assets/ip图片_站着的.png` - 站着姿势的IP基础形象
 - `assets/logo.png` - Logo图
 - `assets/人物.png` - 示例人物图
+- `assets/下班打卡弹窗背景.png` - 默认弹窗截图背景

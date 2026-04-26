@@ -6,6 +6,12 @@ from utils.file.file import File
 # 固定的IP基础形象路径
 IP_DAKA_PATH = os.path.join(os.getenv("COZE_WORKSPACE_PATH", ""), "assets/ip图片_打卡.jpg")
 IP_STANDING_PATH = os.path.join(os.getenv("COZE_WORKSPACE_PATH", ""), "assets/ip图片_站着的.png")
+POPUP_BACKGROUND_PATH = os.path.join(os.getenv("COZE_WORKSPACE_PATH", ""), "assets/下班打卡弹窗背景.png")
+
+
+def default_popup_background_file() -> File:
+    """默认弹窗截图背景"""
+    return File(url=POPUP_BACKGROUND_PATH, file_type="image")
 
 
 # ==================== 全局状态 ====================
@@ -13,7 +19,7 @@ class GlobalState(BaseModel):
     """全局状态定义 - 贯穿整个工作流的数据"""
     person_image: File = Field(..., description="人物形象照（提供衣服样式）")
     logo_image: File = Field(..., description="Logo图片")
-    background_image: File = Field(..., description="弹窗截图背景图")
+    background_image: Optional[File] = Field(default=None, description="弹窗截图背景图")
     # 站着姿势相关
     standing_image: Optional[File] = Field(default=None, description="生成的站着的IP换装图（直接输出）")
     # 打卡姿势相关
@@ -27,7 +33,7 @@ class GraphInput(BaseModel):
     """工作流的输入"""
     person_image: File = Field(..., description="人物形象照（提供衣服样式）")
     logo_image: File = Field(..., description="Logo图片")
-    background_image: File = Field(..., description="弹窗截图背景图")
+    background_image: Optional[File] = Field(default=None, description="弹窗截图背景图，不传时使用内置默认背景")
 
 
 class GraphOutput(BaseModel):
@@ -120,7 +126,7 @@ class StartNodeInput(BaseModel):
     """起始节点的输入"""
     person_image: File = Field(..., description="人物形象照")
     logo_image: File = Field(..., description="Logo图片")
-    background_image: File = Field(..., description="弹窗截图背景图")
+    background_image: Optional[File] = Field(default=None, description="弹窗截图背景图，不传时使用内置默认背景")
 
 
 class StartNodeOutput(BaseModel):
