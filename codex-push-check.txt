@@ -1,0 +1,3 @@
+Codex push check.
+
+Created to verify that authenticated Git push works from this machine.
