@@ -2,7 +2,7 @@ import os
 import uuid
 import requests
 from io import BytesIO
-from PIL import Image, ImageChops, ImageDraw, ImageFilter
+from PIL import Image, ImageChops, ImageDraw
 import numpy as np
 from langchain_core.runnables import RunnableConfig
 from langgraph.runtime import Runtime
@@ -12,11 +12,33 @@ from utils.file.file import File
 from coze_coding_dev_sdk.s3 import S3SyncStorage
 
 
-def resize_by_height(image: Image.Image, target_height: int) -> Image.Image:
-    """按目标高度等比缩放图片"""
-    width, height = image.size
-    target_width = round(width * target_height / height)
-    return image.resize((target_width, target_height), Image.Resampling.LANCZOS)
+BASE_POPUP_WIDTH = 375
+BASE_POPUP_HEIGHT = 812
+IP_CENTER_X = 187
+IP_BOTTOM_Y = 258
+IP_MAX_WIDTH = 145
+IP_MAX_HEIGHT = 125
+LOGO_BADGE_X = 112
+LOGO_BADGE_Y = 256
+LOGO_BADGE_SIZE = 34
+
+
+def load_image_file(image_file: File, timeout: int = 30) -> Image.Image:
+    """加载URL或本地路径图片"""
+    url = image_file.url
+    if url.startswith("http://") or url.startswith("https://"):
+        response = requests.get(url, timeout=timeout)
+        response.raise_for_status()
+        return Image.open(BytesIO(response.content))
+
+    if not os.path.isabs(url):
+        workspace_path = os.getenv("COZE_WORKSPACE_PATH", "")
+        url = os.path.join(workspace_path, url)
+
+    if not os.path.exists(url):
+        raise Exception(f"图片不存在: {url}")
+
+    return Image.open(url)
 
 
 def sample_logo_edge_color(logo: Image.Image, edge_width: int = 8) -> tuple[int, int, int, int]:
@@ -42,37 +64,6 @@ def sample_logo_edge_color(logo: Image.Image, edge_width: int = 8) -> tuple[int,
 
     color = np.median(visible[:, :4], axis=0)
     return tuple(int(round(v)) for v in color)
-
-
-def add_bottom_fade(image: Image.Image, fade_start: float = 0.58, fade_end: float = 0.76) -> Image.Image:
-    """
-    为图片添加底部渐变透明效果
-    从fade_start位置开始渐变，到fade_end位置完全透明
-    """
-    rgba = image.convert("RGBA")
-    width, height = rgba.size
-    alpha = rgba.getchannel("A")
-
-    # 创建渐变遮罩
-    fade_mask = Image.new("L", (1, height), 255)
-    start_y = max(0, min(height - 1, round(height * fade_start)))
-    end_y = max(start_y + 1, min(height, round(height * fade_end)))
-
-    # 渐变区域
-    for y in range(start_y, end_y):
-        progress = (y - start_y) / max(1, end_y - start_y)
-        fade_mask.putpixel((0, y), round(255 * (1.0 - progress)))
-
-    # 渐变结束后完全透明
-    for y in range(end_y, height):
-        fade_mask.putpixel((0, y), 0)
-
-    # 拉伸到全宽并应用
-    fade_mask = fade_mask.resize((width, height), Image.Resampling.BILINEAR)
-    merged_alpha = Image.new("L", (width, height))
-    merged_alpha.paste(ImageChops.multiply(alpha, fade_mask))
-    rgba.putalpha(merged_alpha)
-    return rgba
 
 
 def make_logo_badge(
@@ -128,12 +119,19 @@ def make_logo_badge(
     return badge
 
 
-def add_shadow(image: Image.Image, blur_radius: int = 10, opacity: int = 70) -> Image.Image:
-    """为图片添加投影效果"""
-    alpha = image.getchannel("A")
-    shadow = Image.new("RGBA", image.size, (0, 0, 0, 0))
-    shadow.putalpha(alpha.point(lambda v: min(255, round(v * opacity / 255))))
-    return shadow.filter(ImageFilter.GaussianBlur(blur_radius))
+def scale_popup_value(value: int, scale: float) -> int:
+    """按弹窗截图尺寸缩放坐标或尺寸"""
+    return max(1, round(value * scale))
+
+
+def fit_ip_to_popup(image: Image.Image, background_size: tuple[int, int]) -> Image.Image:
+    """把IP缩放到弹窗顶部mascot区域"""
+    width, height = background_size
+    max_width = scale_popup_value(IP_MAX_WIDTH, width / BASE_POPUP_WIDTH)
+    max_height = scale_popup_value(IP_MAX_HEIGHT, height / BASE_POPUP_HEIGHT)
+    ip = image.convert("RGBA").copy()
+    ip.thumbnail((max_width, max_height), Image.Resampling.LANCZOS)
+    return ip
 
 
 def composite_image_node(state: CompositeImageInput, config: RunnableConfig, runtime: Runtime[Context]) -> CompositeImageOutput:
@@ -145,64 +143,42 @@ def composite_image_node(state: CompositeImageInput, config: RunnableConfig, run
     ctx = runtime.context
 
     try:
-        # 加载随机背景（由上游节点生成）
-        background_response = requests.get(state.background_image.url, timeout=30)
-        background_response.raise_for_status()
-        background = Image.open(BytesIO(background_response.content)).convert("RGBA")
+        # 加载弹窗截图背景（由上游节点标准化）
+        background = load_image_file(state.background_image).convert("RGBA")
 
         # 加载人物图（从URL）
-        person_response = requests.get(state.cutout_image.url, timeout=30)
-        person_response.raise_for_status()
-        person = Image.open(BytesIO(person_response.content)).convert("RGBA")
+        person = load_image_file(state.cutout_image).convert("RGBA")
 
         # 加载Logo（使用传入的logo_image，动态调整）
-        try:
-            logo_response = requests.get(state.logo_image.url, timeout=30)
-            logo_response.raise_for_status()
-            logo = Image.open(BytesIO(logo_response.content)).convert("RGBA")
-        except Exception:
-            # 如果URL下载失败，使用本地logo作为fallback
-            logo_path = os.path.join(os.getenv("COZE_WORKSPACE_PATH", ""), "assets/logo.png")
-            if os.path.exists(logo_path):
-                logo = Image.open(logo_path).convert("RGBA")
-            else:
-                raise Exception(f"无法加载Logo图片")
+        logo = load_image_file(state.logo_image).convert("RGBA")
 
         # 1. 处理人物
-        # 按高度缩放（目标高度700像素）
-        person = resize_by_height(person, 700)
-        # 添加底部渐变（从57%到67%位置渐变）
-        person = add_bottom_fade(person, fade_start=0.57, fade_end=0.67)
-        # 创建阴影
-        person_shadow = add_shadow(person, blur_radius=12, opacity=68)
+        person = fit_ip_to_popup(person, background.size)
 
         # 2. 处理Logo
-        # 制作圆形徽章（150像素），Logo占满90%宽高
+        scale_x = background.width / BASE_POPUP_WIDTH
+        scale_y = background.height / BASE_POPUP_HEIGHT
+        logo_badge_size = scale_popup_value(LOGO_BADGE_SIZE, min(scale_x, scale_y))
         logo_badge = make_logo_badge(
             logo,
-            badge_size=150,
-            logo_width_ratio=0.9,  # 占满宽度
-            logo_height_ratio=0.8,  # 占满高度
+            badge_size=logo_badge_size,
+            logo_width_ratio=0.9,
+            logo_height_ratio=0.8,
         )
 
         # 3. 合成到背景
         result = background.copy()
 
-        # 人物位置（居中，y=680）
-        person_x = (result.width - person.width) // 2
-        person_y = 680
-
-        # 阴影位置（稍微偏移）
-        shadow_x = person_x
-        shadow_y = person_y + 14
-
-        # 先粘贴阴影，再粘贴人物
-        result.alpha_composite(person_shadow, (shadow_x, shadow_y))
+        # IP位置：弹窗顶部居中，覆盖原小人区域
+        person_center_x = round(IP_CENTER_X * scale_x)
+        person_bottom_y = round(IP_BOTTOM_Y * scale_y)
+        person_x = round(person_center_x - person.width / 2)
+        person_y = round(person_bottom_y - person.height)
         result.alpha_composite(person, (person_x, person_y))
 
-        # Logo位置（x=320, y=1150）
-        logo_x = 320
-        logo_y = 1150
+        # Logo徽章位置：标题左侧
+        logo_x = round(LOGO_BADGE_X * scale_x)
+        logo_y = round(LOGO_BADGE_Y * scale_y)
         result.alpha_composite(logo_badge, (logo_x, logo_y))
 
         # 4. 保存并上传

@@ -10,14 +10,14 @@
 | generate_daka | `nodes/generate_daka_node.py` | task | 生成打卡IP换装图，后续需处理 | 并行分支2 | - |
 | resize_image | `nodes/resize_image_node.py` | task | 压缩打卡图片到512px高度 | - | - |
 | remove_background | `nodes/remove_background_node.py` | task | 智能抠图，去除打卡图片背景 | - | - |
-| generate_random_background | `nodes/generate_random_background_node.py` | task | 抠图后生成随机展示背景 | - | - |
-| composite_image | `nodes/composite_image_node.py` | task | 将抠图主体合成到随机背景，并添加Logo徽章 | - | - |
+| prepare_popup_background | `nodes/prepare_popup_background_node.py` | task | 标准化弹窗截图背景 | - | - |
+| composite_image | `nodes/composite_image_node.py` | task | 将抠图主体合成到弹窗背景，并添加Logo徽章 | - | - |
 
 **类型说明**: task(task节点) / agent(大模型) / condition(条件分支) / looparray(列表循环) / loopcond(条件循环)
 
 ## 工作流流程
 ```
-输入(人物图+Logo)
+输入(人物图+Logo+弹窗背景)
     ↓
    start (虚拟起始节点)
     ↓
@@ -37,7 +37,7 @@
          │              └────────┬────────┘
          │                       ↓
          │              ┌─────────────────┐
-         │              │generate_random_ │
+         │              │prepare_popup_   │
          │              │   background    │
          │              └────────┬────────┘
          │                       ↓
@@ -54,12 +54,13 @@
 **并行执行说明**：
 - `start` 节点同时触发 `generate_standing` 和 `generate_daka`，**真正实现并行执行**
 - **分支1**（站着）：生成后直接输出到 `standing_image`，然后结束
-- **分支2**（打卡）：生成后继续经过压缩、抠图、随机背景、合成链路，输出到 `final_image`
+- **分支2**（打卡）：生成后继续经过压缩、抠图、弹窗背景准备、合成链路，输出到 `final_image`
 - **速度优势**：两个生图任务同时运行，总耗时 ≈ max(生图时间, 打卡链路时间) 而非两者之和
 
 **输入说明**：
 - `person_image` (必填): 人物形象照，提供衣服样式
 - `logo_image` (必填): Logo图片，会出现在衣服上
+- `background_image` (必填): 弹窗截图背景，用于替换顶部IP形象
 
 **输出说明**：
 - `standing_image`: 站着的IP换装图片（直接输出，白色背景）
@@ -69,30 +70,27 @@
 - 打卡姿势: `assets/ip图片_打卡.jpg`
 - 站着姿势: `assets/ip图片_站着的.png`
 
-## 随机背景合成说明
-`generate_random_background`节点会在抠图完成后，程序化生成一张随机展示背景；`composite_image`节点负责把打卡IP换装主体和Logo合成到该背景上。输出画布尺寸沿用`assets/没有logo和人物的网页截图.png`，确保现有版式位置不变。
+## 弹窗背景合成说明
+`prepare_popup_background`节点会在抠图完成后，标准化调用方传入的弹窗截图背景；`composite_image`节点负责把打卡IP换装主体和Logo合成到该背景上。输出画布保持原弹窗背景尺寸。
 
 ### 背景处理
-1. **随机配色**：从多组清爽展示风格中随机选择配色
-2. **空间层次**：生成墙面、地面、透视线和柔光效果
-3. **装饰元素**：随机添加无文字海报色块和柔和光斑
-4. **质感优化**：添加轻微噪声，避免背景过于平面
+1. **来源**：使用工作流入参`background_image`
+2. **标准化**：统一转为RGBA PNG并上传存储
+3. **尺寸**：保持输入背景原始尺寸
 
 ### 人物处理
-1. **缩放**：按高度缩放到700像素
-2. **渐变蒙蔽**：从57%位置开始渐变，到67%位置完全透明
-3. **阴影效果**：添加高斯模糊阴影（blur=12, opacity=68），偏移14像素
-4. **位置**：水平居中，Y=680
+1. **缩放**：以375x812弹窗为基准，最大宽145px、最大高125px
+2. **位置**：覆盖弹窗顶部原小人区域，中心X=187、底部Y=258
+3. **适配**：坐标和尺寸按背景实际尺寸等比缩放
 
 ### Logo处理
-1. **徽章样式**：白色圆形背景，灰色边框（150px）
-2. **Logo缩放**：缩放到徽章的72%宽度
-3. **位置**：X=320, Y=1150
+1. **徽章样式**：圆形背景和灰色边框（基准34px）
+2. **Logo缩放**：占徽章90%宽度、80%高度
+3. **位置**：标题左侧，基准X=112、Y=256
 
 ### 合成顺序
-1. 随机背景图
-2. 人物阴影
-3. 人物（带渐变）
+1. 弹窗背景图
+2. 人物
 4. Logo徽章
 
 ## 智能抠图逻辑
@@ -119,7 +117,7 @@
 - 节点`generate_standing`和`generate_daka`使用图片生成技能 (doubao-seedream-5-0-260128模型)
   - **多图参考**：同时上传IP形象、人物衣服样式、Logo
   - 两个节点**并行执行**，提升速度
-- 节点`remove_background`、`generate_random_background`和`composite_image`使用PIL/OpenCV进行图像处理
+- 节点`remove_background`、`prepare_popup_background`和`composite_image`使用PIL/OpenCV进行图像处理
 - 文件存储使用S3SyncStorage
 
 ## 资源文件
@@ -127,4 +125,3 @@
 - `assets/ip图片_站着的.png` - 站着姿势的IP基础形象
 - `assets/logo.png` - Logo图
 - `assets/人物.png` - 示例人物图
-- `assets/没有logo和人物的网页截图.png` - 输出画布尺寸参考图

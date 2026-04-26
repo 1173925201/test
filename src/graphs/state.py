@@ -13,12 +13,12 @@ class GlobalState(BaseModel):
     """全局状态定义 - 贯穿整个工作流的数据"""
     person_image: File = Field(..., description="人物形象照（提供衣服样式）")
     logo_image: File = Field(..., description="Logo图片")
+    background_image: File = Field(..., description="弹窗截图背景图")
     # 站着姿势相关
     standing_image: Optional[File] = Field(default=None, description="生成的站着的IP换装图（直接输出）")
     # 打卡姿势相关
     daka_image: Optional[File] = Field(default=None, description="生成的打卡IP换装图（白色背景）")
     cutout_image: Optional[File] = Field(default=None, description="抠图后的打卡图片主体")
-    background_image: Optional[File] = Field(default=None, description="随机生成的背景图")
     final_image: Optional[File] = Field(default=None, description="最终合成的打卡图片")
 
 
@@ -27,6 +27,7 @@ class GraphInput(BaseModel):
     """工作流的输入"""
     person_image: File = Field(..., description="人物形象照（提供衣服样式）")
     logo_image: File = Field(..., description="Logo图片")
+    background_image: File = Field(..., description="弹窗截图背景图")
 
 
 class GraphOutput(BaseModel):
@@ -86,18 +87,19 @@ class RemoveBackgroundOutput(BaseModel):
     logo_image: File = Field(..., description="Logo图片")
 
 
-# ==================== 节点5: 生成随机背景 ====================
-class GenerateRandomBackgroundInput(BaseModel):
-    """随机背景节点的输入"""
+# ==================== 节点5: 准备弹窗背景 ====================
+class PreparePopupBackgroundInput(BaseModel):
+    """弹窗背景节点的输入"""
     cutout_image: File = Field(..., description="抠图后的打卡主体图片")
     logo_image: File = Field(..., description="Logo图片")
+    background_image: File = Field(..., description="弹窗截图背景图")
 
 
-class GenerateRandomBackgroundOutput(BaseModel):
-    """随机背景节点的输出"""
+class PreparePopupBackgroundOutput(BaseModel):
+    """弹窗背景节点的输出"""
     cutout_image: File = Field(..., description="抠图后的打卡主体图片")
     logo_image: File = Field(..., description="Logo图片")
-    background_image: File = Field(..., description="随机生成的背景图")
+    background_image: File = Field(..., description="标准化后的弹窗截图背景图")
 
 
 # ==================== 节点6: 合成最终图片 ====================
@@ -105,7 +107,7 @@ class CompositeImageInput(BaseModel):
     """合成图片节点的输入"""
     cutout_image: File = Field(..., description="抠图后的打卡主体图片")
     logo_image: File = Field(..., description="Logo图片")
-    background_image: File = Field(..., description="随机生成的背景图")
+    background_image: File = Field(..., description="弹窗截图背景图")
 
 
 class CompositeImageOutput(BaseModel):
@@ -118,9 +120,11 @@ class StartNodeInput(BaseModel):
     """起始节点的输入"""
     person_image: File = Field(..., description="人物形象照")
     logo_image: File = Field(..., description="Logo图片")
+    background_image: File = Field(..., description="弹窗截图背景图")
 
 
 class StartNodeOutput(BaseModel):
     """起始节点的输出"""
     person_image: File = Field(..., description="人物形象照（传递到下游节点）")
     logo_image: File = Field(..., description="Logo图片（传递到下游节点）")
+    background_image: File = Field(..., description="弹窗截图背景图（传递到下游节点）")
